@@ -1,0 +1,8 @@
+HANDOFF.md
+qwen-worker.py
+node_modules/
+__pycache__/
+*.pyc
+*.wav
+data.json
+.env*
