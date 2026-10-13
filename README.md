@@ -13,6 +13,7 @@ Obsidian에서 드래그한 글을 Windows 기본 음성 또는 로컬 Supertoni
 ## 사용
 
 - 노트, Canvas 텍스트·노트 카드, 텍스트 선택이 가능한 PDF에서 글을 드래그하고 옆의 스피커 버튼을 누릅니다.
+- 드래그 방향에 관계없이 선택을 끝낸 글자 옆에 스피커 버튼을 표시합니다. 키보드로 선택한 글도 읽을 수 있습니다.
 - 아래 재생 막대에서 일시정지, 이어듣기, 정지와 배속을 조절합니다.
 - 속도는 0.50~2.00배, 0.05배 간격입니다. 재생 중 바꾼 속도는 현재 낭독에만 적용됩니다.
 - **설정 → Selection Reader**에서 기본 속도와 음성 방식을 고릅니다.
@@ -40,7 +41,7 @@ node --check main.js
 node --test speech.test.cjs selection.test.cjs ai-speech.test.cjs model-store.test.cjs audio-cache.test.cjs
 ```
 
-24개 자동 검사와 격리된 Obsidian Sandbox의 실제 낭독·설정·재시작 검증을 수행했습니다. 이 릴리즈에서 BRAT 설치 검증은 수행하지 않았습니다.
+26개 자동 검사와 격리된 Obsidian Sandbox의 실제 낭독·설정·재시작 검증을 수행했습니다. 이 릴리즈에서 BRAT 설치 검증은 수행하지 않았습니다.
 
 ## 타사 코드
 

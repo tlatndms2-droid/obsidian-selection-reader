@@ -1,6 +1,6 @@
 const {Plugin, Notice, setIcon, PluginSettingTab, Setting, Modal} = require('obsidian');
 const {WindowsSpeech,SPEEDS,normalizeSpeed} = require('./speech');
-const {normalizePdfText,frameRect} = require('./selection');
+const {normalizePdfText,frameRect,selectionFocusRect,selectionButtonPosition} = require('./selection');
 const {AiRuntime}=require('./ai-runtime');
 const {SupertonicSpeech}=require('./ai-speech');
 const workerSource=require('./worker-source');
@@ -166,11 +166,13 @@ module.exports = class SelectionReader extends Plugin {
   bindSelectionDocument(doc,frame){
     if(this.selectionDocuments.has(doc))return;
     const handlers=[];const on=(name,fn)=>{doc.addEventListener(name,fn,true);handlers.push(()=>doc.removeEventListener(name,fn,true));};
-    on('mousedown',e=>{if(!this.button.contains(e.target) && !this.bar.contains(e.target))this.clearSelection();});
-    on('mouseup',e=>{if(!this.button.contains(e.target) && !this.bar.contains(e.target))this.scheduleSelection(e,frame);});
-    on('keyup',e=>{if(e.key==='Escape')this.clearSelection();else if(e.key.startsWith('Arrow') || e.key==='Shift')this.scheduleSelection(e,frame);});
+    let dragging=false;
+    on('mousedown',e=>{if(!this.button.contains(e.target) && !this.bar.contains(e.target)){dragging=true;this.clearSelection();}});
+    on('mouseup',e=>{dragging=false;if(!this.button.contains(e.target) && !this.bar.contains(e.target))this.scheduleSelection(e,frame);});
+    on('keyup',e=>{if(e.key==='Escape')this.clearSelection();else if(e.key.startsWith('Arrow') || ['Shift','Home','End','a','A'].includes(e.key))this.scheduleSelection(e,frame);});
     on('selectionchange',()=>{
       if(this.selection?.doc===doc && !this.readSelection(this.selection.target,frame)?.text.trim())this.clearSelection();
+      if(!dragging&&!doc.getSelection()?.isCollapsed)this.scheduleSelection({target:doc.getSelection()?.focusNode?.parentElement},frame);
     });
     on('scroll',()=>this.clearSelection());on('wheel',()=>this.clearSelection());
     this.selectionDocuments.set(doc,{frame,dispose:()=>handlers.forEach(fn=>fn())});
@@ -183,9 +185,10 @@ module.exports = class SelectionReader extends Plugin {
     }
   }
   readSelection(target,frame){
+    const doc=frame?.contentDocument||target?.ownerDocument||document,native=doc.getSelection();
+    if(!target?.closest?.('.markdown-source-view,.markdown-preview-view,.pdfViewer')){const focus=native?.focusNode;target=focus?.nodeType===1?focus:focus?.parentElement;}
     if(!target?.closest || !target.isConnected)return null;
     const view=this.app.workspace.activeLeaf?.view,type=view?.getViewType();
-    const doc=target.ownerDocument,native=doc.getSelection();
     let root,editor,kind=type;
     if(type==='markdown' && !frame && view.contentEl.contains(target)){
       root=target.closest('.markdown-source-view,.markdown-preview-view');
@@ -221,13 +224,13 @@ module.exports = class SelectionReader extends Plugin {
     const selected=this.readSelection(target,frame);
     if(!selected?.text.trim()){this.clearSelection();return;}
     const {text,native,doc,kind}=selected;
-    let rect = native?.rangeCount ? native.getRangeAt(0).getBoundingClientRect() : null;
-    if (!rect || (!rect.width && !rect.height)) rect = {right:point.x || target.getBoundingClientRect().right,bottom:point.y || target.getBoundingClientRect().bottom};
-    if(frame && rect)rect=frameRect(rect,frame.getBoundingClientRect(),frame.clientWidth||1,frame.clientHeight||1);
+    let rect=selectionFocusRect(native);
+    if (!rect || (!rect.width && !rect.height)) rect={left:point.x??target.getBoundingClientRect().right,right:point.x??target.getBoundingClientRect().right,top:point.y??target.getBoundingClientRect().top,bottom:point.y??target.getBoundingClientRect().bottom,width:0,height:32};
+    if(frame && rect)rect={...frameRect(rect,frame.getBoundingClientRect(),frame.clientWidth||1,frame.clientHeight||1),backward:rect.backward};
     this.selection = {text,target,doc,kind};
     this.button.hidden = false;
-    this.button.style.left = Math.max(8,Math.min(rect.right+6,window.innerWidth-44))+'px';
-    this.button.style.top = Math.max(8,Math.min(rect.bottom+6,window.innerHeight-48))+'px';
+    const position=selectionButtonPosition(rect,window.innerWidth,window.innerHeight);
+    this.button.style.left=position.left+'px';this.button.style.top=position.top+'px';
   }
   clearSelection() { window.clearTimeout(this.selectionTimer); this.selection = null; if (this.button) this.button.hidden = true; }
   renderState(state) {
